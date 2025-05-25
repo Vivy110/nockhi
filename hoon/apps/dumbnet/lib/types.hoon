@@ -70,6 +70,7 @@
 
 +$  effect
   $%  [%gossip p=@]
+      :: [%request ...] diperbaiki
       [%request p=$%(
                     [%block $%(
                               [%height @]
