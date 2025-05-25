@@ -37,7 +37,7 @@
 
 +$  admin-state
   $:  desk-hash=(unit @)
-      init=? 
+      init=?
       retain=@                             :: 0=drop all, ~=keep forever
   ==
 
@@ -70,7 +70,13 @@
 
 +$  effect
   $%  [%gossip p=@]
-      [%request p=$%([%block $@(~ [%height @] [%elders @ @])] [%tx @])]
+      [%request p=$%(
+                    [%block $%(
+                              [%height @]
+                              [%elders @ @]
+                            )]
+                    [%tx @]
+                  )]
       [%track p=$%([%add @ @] [%remove @])]
       [%seen p=$%([%block @] [%tx @])]
       [%mine @ @ @]
