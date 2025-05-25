@@ -70,14 +70,14 @@
 
 +$  effect
   $%  [%gossip p=@]
-      :: [%request ...] diperbaiki
+      :: Struktur [%request] yang diperbaiki
       [%request p=$%(
                     [%block $%(
                               [%height @]
                               [%elders @ @]
-                            )]
+                            ==)  ;; Tutup inner $%
                     [%tx @]
-                  )]
+                  ==)]           ;; Tutup outer $%
       [%track p=$%([%add @ @] [%remove @])]
       [%seen p=$%([%block @] [%tx @])]
       [%mine @ @ @]
