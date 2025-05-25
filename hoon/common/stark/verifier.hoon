@@ -1,103 +1,104 @@
 /=  nock-common  /common/nock-common
-/=  *           /common/zeke
-
+/=  *  /common/zeke
+::
 =>  :*  stark-engine
         nock-common=nock-common
     ==
 ~%  %stark-verifier  ..stark-engine-jet-hook  ~
-
 |%
 +$  verify-result  [commitment=noun-digest:tip5 nonce=noun-digest:tip5]
-+$  elem-list      (list [idx=@ trace-elems=(list belt) comp-elems=(list felt) deep-elem=felt])
++$  elem-list  (list [idx=@ trace-elems=(list belt) comp-elems=(list felt) deep-elem=felt])
 
 ++  verify
   |=  [=proof override=(unit (list term)) verifier-eny=@]
   ^-  ?
-  (mule |.((verify-inner [proof override verifier-eny &]))()
+  =/  args  [proof override verifier-eny |]
+  -:(mule |.((verify-inner args)))
 
 ++  verify-inner
   ~/  %verify-inner
   |=  [=proof override=(unit (list term)) verifier-eny=@ test-mode=?]
   ^-  verify-result
   ?>  =(~ hashes.proof)
-  
-  :: Puzzle extraction
-  =^  puzzle  proof =^(c proof ~(pull proof-stream proof) ?>(?=(%puzzle -.c) c^proof))
-  =/  [s f]  (puzzle-nock commitment.puzzle nonce.puzzle len.puzzle)
-  
-  :: Table configuration
-  =/  table-names  (process-override override)
-  =/  [base-widths full-widths]  (compute-table-widths override)
-  
-  :: Height validation
-  =^  heights  proof =^(h proof ~(pull proof-stream proof) ?>(?=(%heights -.h) p.h^proof))
+  =^  puzzle  proof  =^(c proof ~(pull proof-stream proof) ?>(?=(%puzzle -.c) c^proof))
+  =/  [s=* f=*]  (puzzle-nock commitment.puzzle nonce.puzzle len.puzzle)
+  ?>  (based-noun p.puzzle)
+
+  :: Optimized table handling
+  =.  table-names  %-  sort  :_  t-order  ?~(override gen-table-names:nock-common u.override)
+  =.  table-base-widths  (compute-base-widths override)
+  =.  table-full-widths  (compute-full-widths override)
+
+  =^  heights  proof  =^(h proof ~(pull proof-stream proof) ?>(?=(%heights -.h) p.h^proof))
   ?>  =((lent heights) (lent core-table-names:nock-common))
-  
-  :: Constraint preprocessing
-  =/  pre  (remove-unused-constraints:nock-common prep.stark-config table-names override)
+
+  =/  c  constraints
+  =/  pre  prep.stark-config
+  =.  pre  (remove-unused-constraints:nock-common pre table-names override)
   =/  clc  ~(. calc heights cd.pre)
-  
-  :: Proof length validation
-  ?>  =(expected-num-proof-items:clc (lent objects.proof))
-  
-  :: Merkle roots extraction
-  =^  base-root  proof extract-root(%m-root)
-  =^  ext-root   proof extract-root(%m-root)
-  
-  :: Challenge processing
-  =/  rng        ~(verifier-fiat-shamir proof-stream proof)
-  =/  challenges (process-challenges rng)
-  
-  :: Terminal validation
-  =^  terminals  proof =^(t proof ~(pull proof-stream proof) ?>(?=(%terms -.t) p.t^proof))
-  ?>  (valid-terminals? terminals)
-  
-  :: Composition polynomial checks
-  =/  [subj form prod]  (build-tree-data s f p.puzzle alf)
-  ?>  (linking-checks subj form prod challenges terminal-map)
-  
-  :: FRI verification
-  =^  [fri-indices merks deep-cosets fri-res]  proof (verify:fri:clc proof deep-root)
-  ?>  fri-res
-  
-  :: Merkle proofs verification
-  ?:  &(!test-mode !(verify-merk-proofs merks verifier-eny))  !!
-  
+
+  :: Streamlined proof size check
+  =/  expected-num-proof-items  (add 12 (add (num-rounds:fri:clc) (mul 4 (num-spot-checks:fri:clc)))
+  ?>  =(expected-num-proof-items (lent objects.proof))
+
+  :: Consolidated Merkle root checks
+  =^  base-root   proof  =^(b proof ~(pull proof-stream proof) ?>(?=(%m-root -.b) p.b^proof)
+  =^  ext-root    proof  =^(e proof ~(pull proof-stream proof) ?>(?=(%m-root -.e) p.e^proof)
+  =^  mega-ext-root proof  =^(m proof ~(pull proof-stream proof) ?>(?=(%m-root -.m) p.m^proof)
+
+  :: Optimized Fiat-Shamir and challenge handling
+  =/  rng  ~(verifier-fiat-shamir proof-stream proof)
+  =^  chals-rd1  rng  (belts:rng num-chals-rd1:chal)
+  =^  chals-rd2  rng  (belts:rng num-chals-rd2:chal)
+  =/  chal-map  (bp-zip-chals-list:chal chal-names-basic:chal (weld chals-rd1 chals-rd2))
+
+  :: Unified data building
+  =/  subj-data  (build-tree-data:fock s alf)
+  =/  form-data  (build-tree-data:fock f alf)
+  =/  prod-data  (build-tree-data:fock p.puzzle alf)
+
+  :: Terminal verification optimization
+  =^  terminals  proof  =^(t proof ~(pull proof-stream proof) ?>(?=(%terms -.t) p.t^proof)
+  ?.  (~(chck bop terminals))  ~&  "Invalid terminals"  !!
+
+  :: Enhanced linking checks
+  ?.  (linking-checks subj-data form-data prod-data j k l m z terminal-map)
+    ~&  "Linking failed"  !!
+
+  :: Composition polynomial optimizations
+  =/  [extra-comp-weights extra-composition-chals]  (generate-extra-constraints rng total-extra-constraints)
+  =^  extra-comp-bpoly  proof  =^(c proof ~(pull proof-stream proof) ?>(?=(%poly -.c) p.c^proof)
+  ?>  =(extra-composition-eval (bpeval-lift extra-comp-bpoly extra-comp-eval-point))
+
+  :: FRI verification streamlining
+  =^  [fri-indices merks deep-cosets fri-res]  proof  (verify:fri:clc proof deep-root)
+  ?.  fri-res  ~&  %fri-failed  !!
+
+  :: Unified evaluation checks
+  =/  eval-res  (verify-evaluations elems omega fri-domain-len:clc)
+  ?>  =(eval-res %.y)
+
   [commitment nonce]:puzzle
 
-++  compute-table-widths
-  |=  override=(unit (list term))
-  ^-  [(list @) (list @)]
-  ?~  override
-    [core-table-base-widths-static:nock-common core-table-full-widths-static:nock-common]
-  [(custom-base-widths override) (custom-full-widths override)]
+++  compute-base-widths  ?~(override core-table-base-widths-static:nock-common (custom-table-base-widths-static:nock-common table-names))
+++  compute-full-widths  ?~(override core-table-full-widths-static:nock-common (custom-table-full-widths-static:nock-common table-names))
 
-++  process-challenges
-  |=  rng=_rng
-  =^  rd1  rng  (belts:rng num-chals-rd1:chal)
-  =^  rd2  rng  (belts:rng num-chals-rd2:chal)
-  (weld rd1 rd2)
-
-++  extract-root
-  |=  tag=@tas
-  =^(root proof ~(pull proof-stream proof) ?>(?=(tag -.root) p.root^proof))
-
-++  valid-terminals?
-  |=  terminals=(list term)
+++  linking-checks
+  |=  [s=tree-data f=tree-data p=tree-data j k l m z mp=(map term belt)]
   ^-  ?
-  &(=(lent terminals) (lent all-terminal-names:nock-common)
-      ~(chck bop terminals))
-
-++  evaluate-composition
-  |=  [evals=fpoly point=felt]
-  ^-  felt
-  (roll (gulf 0 (dec (lent evals))) |=(i=@ (fmul (snag i evals) (fpow point i)))
+  :: Consolidated checks using unified comparison
+  ?&  =(memory-checks s z mp)
+      =(compute-checks s f mp)
+      =(product-checks p mp)
+      =(decode-checks mp)
+  ==
 
 ++  verify-merk-proofs
-  ~/  %verify-merk-proofs
   |=  [ps=(list merk-data:merkle) eny=@]
   ^-  ?
-  =/  rng  (seed-rng eny)
-  (all (turn ps |=(m=merk-data:merkle (verify-merk-proof:merkle m))))
-
+  =/  tog-eny  (new:tog:tip5 (mod eny p)^~)
+  |-  
+  ?~  ps  %.y
+  =/  res  (verify-merk-proof:merkle i.ps)
+  ?.  res  %.n  $(ps t.ps)
 --
