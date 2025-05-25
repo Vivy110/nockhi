@@ -1,3 +1,3 @@
-/=  dumb  /apps/dumbnet/inner
-((moat:dumb |) inner:dumb)
-:: churning the file on purpose 20
+:: Optimized kernel bootstrap
+/=  *  /apps/dumbnet/inner
+=<(inner (moat |))
